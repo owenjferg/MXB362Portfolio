@@ -1,0 +1,152 @@
+setwd("/home/owen/UNI/MXB362/Portfolio Things/week6")
+
+library(R.matlab)
+
+# Read the file directly from the same folder
+mat <- readMat("DiCubic.mat")
+
+# Now your previous commands will work
+Di <- mat$Di
+maxDi <- max(Di)
+alpha <- Di / maxDi
+C <- Di
+
+composite_z <- function(C, alpha, z_order) {
+  Cout <- matrix(0, nrow = dim(C)[1], ncol = dim(C)[2])
+  aout <- matrix(0, nrow = dim(C)[1], ncol = dim(C)[2])
+
+  for (i in z_order) {
+    Ci <- C[,,i]
+    ai <- alpha[,,i]
+
+    Cout <- Cout + (1 - aout) * ai * Ci
+    aout <- aout + (1 - aout) * ai
+  }
+
+  Cout
+}
+
+for (x in 1:256) {
+  for (z in 1:54) {
+    if ((x - 128)^2 + (z - 54)^2 <= 50^2) {
+      alpha[x,,z] <- 0
+    }
+  }
+}
+
+top_render <- composite_z(C, alpha, 1:54)
+bottom_render <- composite_z(C, alpha, 54:1)
+
+png("portfolio_outputs/task1_mri_cylindrical_cutout.png",
+    width = 1200, height = 600)
+
+par(mfrow = c(1, 2))
+
+image(
+  t(apply(top_render, 2, rev)),
+  col = gray.colors(256),
+  axes = FALSE,
+  main = "Top"
+)
+
+image(
+  t(apply(bottom_render, 2, rev)),
+  col = gray.colors(256),
+  axes = FALSE,
+  main = "Bottom"
+)
+
+dev.off()
+
+
+# Task 2 - Tooth slice
+
+mat <- readMat("ctTooth128x128x256.mat")
+ctTooth128x128x256 <- mat$ctTooth128x128x256
+
+slice <- ctTooth128x128x256[64,,]
+rotated_slice <- t(apply(slice, 2, rev))
+
+png("portfolio_outputs/task2_tooth_slice.png",
+    width = 600, height = 900)
+
+image(
+  rotated_slice,
+  col = gray.colors(256),
+  axes = FALSE
+)
+
+dev.off()
+
+
+# Task 3 - Tooth opacity transfer function
+
+composite_y <- function(C, alpha) {
+  Cout <- matrix(0, nrow = dim(C)[1], ncol = dim(C)[3])
+  aout <- matrix(0, nrow = dim(C)[1], ncol = dim(C)[3])
+
+  for (jj in 1:dim(C)[2]) {
+    Ci <- C[,jj,]
+    ai <- alpha[,jj,]
+
+    Cout <- Cout + (1 - aout) * ai * Ci
+    aout <- aout + (1 - aout) * ai
+  }
+
+  Cout
+}
+
+L <- 256
+trans_func <- rep(0, L)
+
+trans_func[101:160] <- seq(0, 0.10, length.out = 60)
+trans_func[161:220] <- seq(0.10, 0.35, length.out = 60)
+trans_func[221:256] <- seq(0.35, 0.80, length.out = 36)
+
+minMRI <- min(ctTooth128x128x256)
+maxMRI <- max(ctTooth128x128x256)
+lenMRI <- maxMRI - minMRI
+
+alpha <- array(0, dim = dim(ctTooth128x128x256))
+
+for (ii in 1:dim(ctTooth128x128x256)[1]) {
+  for (jj in 1:dim(ctTooth128x128x256)[2]) {
+    for (kk in 1:dim(ctTooth128x128x256)[3]) {
+      volVal <- ctTooth128x128x256[ii,jj,kk]
+
+      opacityIndex <- trunc(
+        (volVal - minMRI) / lenMRI * (L - 1)
+      ) + 1
+
+      alpha[ii,jj,kk] <- trans_func[opacityIndex]
+    }
+  }
+}
+
+C <- ctTooth128x128x256
+tooth_render <- composite_y(C, alpha)
+rotated_render <- t(apply(tooth_render, 2, rev))
+
+png("portfolio_outputs/task3_transfer_function.png",
+    width = 800, height = 500)
+
+plot(
+  trans_func,
+  type = "l",
+  xlab = "Opacity index",
+  ylab = "Opacity",
+  main = "Tooth Opacity Transfer Function"
+)
+
+dev.off()
+
+png("portfolio_outputs/task3_tooth_render.png",
+    width = 600, height = 900)
+
+image(
+  rotated_render,
+  col = gray.colors(256),
+  axes = FALSE
+)
+
+dev.off()
