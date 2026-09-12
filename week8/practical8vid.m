@@ -5,7 +5,7 @@ data = fread(fid, 832*832*494, 'uint16');
 fclose(fid);
 
 D = reshape(data, [832, 832, 494]);
-D = D(1:3:end, 1:3:end, end: -3:1);
+D = D(1:3:end, 1:3:end, end:-3:1);
 
 surface = isosurface(D, 400);
 
@@ -15,16 +15,28 @@ lighting gouraud
 axis equal vis3d off
 set(gcf,'color','w')
 
-v = VideoWriter('stag_beetle_rotation.mp4', 'MPEG-4');
-v.FrameRate = 30;
-open(v);
+hLight = camlight('headlight');
+
+videoFile = fullfile(fileparts(mfilename('fullpath')), ...
+    'stag_beetle_rotation.mp4');
+
+vid = VideoWriter(videoFile, 'MPEG-4');
+vid.FrameRate = 40;
+vid.Quality = 100;
+
+open(vid);
 
 for t = 1:720
-    view([-75+t,19])
-    delete(L)
-    L = camlight;
+    view([-75+t, 19])
+
+    camlight(hLight, 'headlight')
 
     drawnow
+
     frame = getframe(gcf);
-    writeVideo(v, frame);
+    writeVideo(vid, frame);
 end
+
+close(vid);
+
+disp(['Video saved to: ' videoFile])

@@ -1,83 +1,80 @@
-function pendulum2()
+%% Pendulum
 
-outputDir = fullfile(getenv('HOME'),'UNI','MXB362','week5');
-if ~exist(outputDir,'dir')
-    mkdir(outputDir)
-end
-filename = fullfile(outputDir,'pendulum_animation.gif');
-if exist(filename,'file')
-    delete(filename)
-end
+DE2 = @(x,t,g,L) [x(2); -g/L * sin(x(1))];
 
-RecordAnimation = 1;
+L0 = 1; % length of first pendulum
+n = 16; % num pendulums
+R = 51; % decay rate of pendulum length
+g = 9.81; % gravity
 
-clear global
-global g m L
-g = 9.81;
+IC = [pi/6, 0]; % initial angle and time
 
-L0 = 1;
-LM = 16;
-G = 51;
+for i = 1:n
 
-x0 = [pi/6,0];
+    L = L0 * (R/(R+i-1)).^2;
 
-% Solve the equations of motion for each pendulum
-for ll = 1:LM
-    L = L0*(G/(G+ll-1)).^2;
-    [t,x] = ode45(@DE2,[0:0.05:120],x0);
-    Angle = x(:,1);
-    Y(:,ll) = -L.*cos(Angle);
-    X(:,ll) = L.*sin(Angle);
+    [t,x] = ode45(@(t,x) DE2(x,t,g,L), 0:0.05:120, IC);
+
+    angles = x(:,1);
+
+    Y(:,i) = -L .* cos(angles);
+    X(:,i) = L .* sin(angles);
+
 end
 
-% Initialise the figure
-h = figure(1); clf; hold on;
+h = figure; hold on;
 view([-90 -5]); camlight; axis off vis3d
 xlim([0 1.2]); ylim([-1.1 1.1]); zlim([-1.1 0]);
 
-PP = patch([1.1 1.1 1.1 1.1],[-1 1 1 -1],[0 0 -1 -1],0.5*ones(1,3));
+% background
+patch([1.1 1.1 1.1 1.1], [-1 1 1 -1], [0 0 -1 -1], [0.5 0.5 0.5]);
 
-[Xs,Ys,Zs] = sphere(15);
-SS = 0.04; Xs = Xs.*SS; Ys = Ys.*SS; Zs = Zs.*SS;
+% colormap
+CL = parula(n);
+CL = flip(CL, 1);
 
-CL = parula(LM); CL = CL(end:-1:1,:);
-Is_3D = 0;
-
-% Create each frame of the animation
-for t = 1:length(X)
-    for ll = 1:LM
-
-        if Is_3D == 0
-            pp(2*(ll)-1) = plot3(ll./LM,X(t,ll),Y(t,ll),'.','markersize',20,'color',CL(ll,:));
-            pp(2*(ll)) = plot3([ll ll]./LM,[0 X(t,ll)],[0 Y(t,ll)],'-','markersize',20,'color',0.8.*ones(1,3));
-        else
-            pp(2*(ll)) = plot3([ll ll]./LM,[0 X(t,ll)],[0 Y(t,ll)],'-','markersize',20,'color',0.2.*ones(1,3));
-            pp(2*(ll)-1) = surf(ll./LM+Xs,X(t,ll)+Ys,Y(t,ll)+Zs);
-            set(pp(2*(ll)-1),'edgecolor','none','facecolor',CL(ll,:),'ambientstrength',0.04,'DiffuseStrength',0.8);
-        end
+% preallocate graphics objects
+lines = {};
+markers = {};
+for t = 1:1
+    for i = 1:n
+        lines{i} = plot3([i i]./n, [0 X(t,i)], [0 Y(t,i)], "-", Color=[0.8 0.8 0.8], MarkerSize=20);
+        markers{i} = plot3(i./n, X(t,i), Y(t,i), ".", Color=CL(i,:), MarkerSize=20);
     end
+end
 
-    if RecordAnimation == 1
-        frame = getframe(h);
-        im = frame2im(frame);
-        [imind,cm] = rgb2ind(im,256);
+% update only Y data and Z data then write to gif
 
-        if t == 1
-            imwrite(imind,cm,filename,'gif','Loopcount',inf,'DelayTime',0.02);
-        else
-            imwrite(imind,cm,filename,'gif','WriteMode','append','DelayTime',0.02);
-        end
+filename = "Pendulum.gif";
+
+if isfile(filename)
+    delete(filename)
+end
+
+for t = 1:height(X)
+
+    for i = 1:n
+        lines{i}.YData = [0 X(t,i)];
+        lines{i}.ZData = [0 Y(t,i)];
+
+        markers{i}.YData = X(t,i);
+        markers{i}.ZData = Y(t,i);
     end
 
     drawnow
-    if t < length(X)
-        delete(pp)
+
+    frame = getframe(h);
+    im = frame2im(frame);
+    [imind, cm] = rgb2ind(im, 256);
+
+    if t == 1
+        imwrite(imind, cm, filename, 'gif', ...
+            'LoopCount', inf, ...
+            'DelayTime', 0.02);
+    else
+        imwrite(imind, cm, filename, 'gif', ...
+            'WriteMode', 'append', ...
+            'DelayTime', 0.02);
     end
-end
-end
 
-function dxdt = DE2(t,x)
-global g L
-
-dxdt = [x(2); -g/L*sin(x(1))];
 end
