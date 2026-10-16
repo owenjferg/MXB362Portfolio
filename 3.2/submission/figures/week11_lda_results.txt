@@ -1,0 +1,8 @@
+Variables: Sepal.Length, Petal.Length
+W = [-0.21989222; 0.97552417]
+J(W) = 0.95251145
+
+Variables: Sepal.Length, Sepal.Width
+W = [-0.82674458; 0.56257746]
+J(W) = 0.80126605
+
